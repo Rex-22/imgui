@@ -88,7 +88,7 @@ static void ImGui_ImplDX9_SetupRenderState(ImDrawData* draw_data)
     g_pd3dDevice->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
 
     // Setup orthographic projection matrix
-    // Our visible imgui space lies from draw_data->DisplayPos (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayMin is (0,0) for single viewport apps.
+    // Our visible imgui space lies from draw_data->DisplayPos (top left) to draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
     // Being agnostic of whether <d3dx9.h> or <DirectXMath.h> can be used, we aren't relying on D3DXMatrixIdentity()/D3DXMatrixOrthoOffCenterLH() or DirectX::XMMatrixIdentity()/DirectX::XMMatrixOrthographicOffCenterLH()
     {
         float L = draw_data->DisplayPos.x + 0.5f;
@@ -226,10 +226,11 @@ void ImGui_ImplDX9_RenderDrawData(ImDrawData* draw_data)
 
 bool ImGui_ImplDX9_Init(IDirect3DDevice9* device)
 {
+    // Setup back-end capabilities flags
     ImGuiIO& io = ImGui::GetIO();
-    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;    // We can create multi-viewports on the Renderer side (optional)
     io.BackendRendererName = "imgui_impl_dx9";
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;  // We can honor the ImDrawCmd::VtxOffset field, allowing for large meshes.
+    io.BackendFlags |= ImGuiBackendFlags_RendererHasViewports;  // We can create multi-viewports on the Renderer side (optional)
 
     g_pd3dDevice = device;
     g_pd3dDevice->AddRef();
@@ -318,8 +319,10 @@ static void ImGui_ImplDX9_CreateWindow(ImGuiViewport* viewport)
     ImGuiViewportDataDx9* data = IM_NEW(ImGuiViewportDataDx9)();
     viewport->RendererUserData = data;
 
-    HWND hWnd = (HWND)viewport->PlatformHandle;
-    IM_ASSERT(hWnd != 0);
+    // PlatformHandleRaw should always be a HWND, whereas PlatformHandle might be a higher-level handle (e.g. GLFWWindow*, SDL_Window*).
+    // Some back-ends will leave PlatformHandleRaw NULL, in which case we assume PlatformHandle will contain the HWND.
+    HWND hwnd = viewport->PlatformHandleRaw ? (HWND)viewport->PlatformHandleRaw : (HWND)viewport->PlatformHandle;
+    IM_ASSERT(hwnd != 0);
 
     ZeroMemory(&data->d3dpp, sizeof(D3DPRESENT_PARAMETERS));
     data->d3dpp.Windowed = TRUE;
@@ -327,7 +330,7 @@ static void ImGui_ImplDX9_CreateWindow(ImGuiViewport* viewport)
     data->d3dpp.BackBufferWidth = (UINT)viewport->Size.x;
     data->d3dpp.BackBufferHeight = (UINT)viewport->Size.y;
     data->d3dpp.BackBufferFormat = D3DFMT_UNKNOWN;
-    data->d3dpp.hDeviceWindow = hWnd;
+    data->d3dpp.hDeviceWindow = hwnd;
     data->d3dpp.EnableAutoDepthStencil = FALSE;
     data->d3dpp.AutoDepthStencilFormat = D3DFMT_D16;
     data->d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;   // Present without vsync
