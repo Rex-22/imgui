@@ -1,5 +1,7 @@
 bin/
 bin-int/
 
+*/**/out/
+
 **.user
 **.vcxproj
